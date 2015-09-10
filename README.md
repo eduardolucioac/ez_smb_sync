@@ -6,8 +6,7 @@ ez_smb_sync - Synchronizing directories via network using samba or compatible ne
 What is ez_smb_sync?
 -----
 
-It's a shell script that uses "unison" for synchronizing directories via network using samba or compatible networking protocol. It's perfect for software development using virtualized environments (VMWare, VirtualBox...), enabling synchronizing them with local directory on your host. 
-The synchronization occurs when you start or stop "ez_smb_sync" or if you type the "sync" command when "ez_smb_sync" is running.
+It's a shell script that uses "unison" for synchronizing directories via network using samba or compatible networking protocol. It's perfect for software development using virtualized environments (VMWare, VirtualBox...), allowing synchronize a local (on your host) and a remote directory (on guest). The synchronization occurs when you start or stop "ez_smb_sync" or if you type the "sync" command when "ez_smb_sync" is running.
 
 How to use!
 -----
