@@ -28,26 +28,28 @@ apt-get install unison
     - DIR_MOUNT_SYNC_LOCAL - Directory which will be the local copy of "NET_SHARE_REMOTE" share.
 
 ```
-# Note: Samba User! By Questor 
-NET_SHARE_USER="username"
-# Note: Samba Password! By Questor 
-NET_SHARE_PSW="password"
+# User name/password to authenticate on samba share!
+NET_SHARE_USER = "user_name"
+NET_SHARE_PSW = "user_pwd"
 
-# Note: "samba share" on remote machine! By Questor 
-NET_SHARE_REMOTE="//IP_OR_NAME/DEV_REMOTE/PROJECT_NAME"
+# "samba share" on remote machine!
+NET_SHARE_REMOTE = "//IP_OR_NAME/FOLDER_A"
 
-# Note: The folder to mount the "share" above! By Questor 
-DIR_MOUNT_SYNC_REMOTE="/DEV_REMOTE/PROJECT_NAME"
+# Folder to mount the "share" above!
+DIR_MOUNT_REMOTE = "/FOLDER_A/FOLDER_B"
 
-# Note: Folder to synchronize the local copy! By Questor 
-DIR_MOUNT_SYNC_LOCAL="/DEV_LOCAL/PROJECT_NAME"
+# Remote diretory to sync!
+DIR_MOUNT_SYNC_REMOTE = "/FOLDER_A/FOLDER_B/FOLDER_C"
+
+# Local diretory to sync!
+DIR_MOUNT_SYNC_LOCAL = "/FOLDER_A/FOLDER_B/FOLDER_C"
 ```
 
  * Give execute permissions:
 
 ```
 chmod a+x ez_smb_sync.sh
-chmod a+x ModelCopy.sh
+chmod a+x model_copy.sh
 ```
 
  * Open a terminal and run...
@@ -58,7 +60,7 @@ sh model_copy.sh
 
 ... and let the magic happen!
 
- * Commands - Type at the terminal while "MyProject.sh" ("ez_smb_sync.sh") is running:
+ * Commands - Type at the terminal while "model_copy.sh" ("ez_smb_sync.sh") is running:
     - quit - To exit;
     - sync - To start a synchronizing between "DIR_MOUNT_SYNC_REMOTE" and "DIR_MOUNT_SYNC_LOCAL" directories.
 
