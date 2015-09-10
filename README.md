@@ -24,8 +24,9 @@ apt-get install unison
 
  * Set the following attributes according to their descriptions in the "model.sh" copy:
     - NET_SHARE_REMOTE - Network path (Samba share);
-    - DIR_MOUNT_SYNC_REMOTE - Directory where "ez_smb_sync" will mount the "NET_SHARE_REMOTE" network path;
-    - DIR_MOUNT_SYNC_LOCAL - Directory which will be the local copy of "NET_SHARE_REMOTE" share.
+    - DIR_MOUNT_REMOTE - Directory where "ez_smb_sync" will mount the "NET_SHARE_REMOTE" network path;
+    - DIR_MOUNT_SYNC_REMOTE - Remote directory to synchronize;
+    - DIR_MOUNT_SYNC_LOCAL - Local directory to synchronize;
 
 ```
 # User name/password to authenticate on samba share!
@@ -38,10 +39,10 @@ NET_SHARE_REMOTE = "//IP_OR_NAME/FOLDER_A"
 # Folder to mount the "share" above!
 DIR_MOUNT_REMOTE = "/FOLDER_A/FOLDER_B"
 
-# Remote diretory to sync!
+# Remote diretory to synchronize!
 DIR_MOUNT_SYNC_REMOTE = "/FOLDER_A/FOLDER_B/FOLDER_C"
 
-# Local diretory to sync!
+# Local diretory to synchronize!
 DIR_MOUNT_SYNC_LOCAL = "/FOLDER_A/FOLDER_B/FOLDER_C"
 ```
 
