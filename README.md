@@ -17,7 +17,7 @@ How to use!
 apt-get install unison
 ```
 
- * Make a copy of the file "model.sh" and give it a name to identify. Examples: "MyProject.sh", "MyClientName.sh" and so on...
+ * Make a copy of the file "model.sh" and give it a name to identify. Examples: "my_project.sh", "my_client_name.sh" and so on...
     - I: This file must be in the same directory of "ez_smb_sync.sh" file;
     - II: For different targets use different copies of the file "model.sh". In that way you can have different settings for different targets easily;
     - III: The synchronization of directories is made bi-directionally.
