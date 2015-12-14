@@ -22,11 +22,7 @@ apt-get install unison
     - II: For different targets use different copies of the file "model.sh". In that way you can have different settings for different targets easily;
     - III: The synchronization of directories is made bi-directionally.
 
- * Set the following attributes according to their descriptions in the "model.sh" copy:
-    - NET_SHARE_REMOTE - Network path (Samba share);
-    - DIR_MOUNT_REMOTE - Directory where "ez_smb_sync" will mount the "NET_SHARE_REMOTE" network path;
-    - DIR_MOUNT_SYNC_REMOTE - Remote directory to synchronize;
-    - DIR_MOUNT_SYNC_LOCAL - Local directory to synchronize;
+ * Set the following attributes according to their descriptions in "model.sh":
 
 ```
 # User name/password to authenticate on samba share!
