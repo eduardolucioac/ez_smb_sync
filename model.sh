@@ -15,7 +15,7 @@ DIR_MOUNT_REMOTE = "/FOLDER_A/FOLDER_B"
 # is equal to 0!
 SYNC_ENABLED=1
 
-# Remote diretory to synchronize!
+# Remote (mounted) diretory to synchronize!
 DIR_MOUNT_SYNC_REMOTE = "/FOLDER_A/FOLDER_B/FOLDER_C"
 
 # Local diretory to synchronize!
