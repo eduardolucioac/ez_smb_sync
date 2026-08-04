@@ -37,12 +37,12 @@ other way around.
 
 ```
 ez_smb_sync/
-├── ez_smb_sync.bash    # the engine — mounts, syncs and provides the prompt
-├── model.bash          # configuration profile template (copy it, don't run it)
+├── ez_smb_sync.bash        # the engine — mounts, syncs and provides the prompt
+├── my_config_model.bash    # configuration profile template (copy it, don't run it)
 ├── images/
-├── .gitignore          # keeps your profiles (with passwords) out of git
+├── .gitignore              # keeps your profiles (with passwords) out of git
 ├── LICENSE
-└── README.md           # this file
+└── README.md               # this file
 ```
 
 ---
@@ -99,14 +99,14 @@ is a privileged operation.
 
 ### 2. Create your configuration profile
 
-Copy `model.bash` and give it a name that identifies the target. Use one copy
-per target — that way you keep different settings for different targets
-easily.
+Copy `my_config_model.bash` and give it a name that identifies the target. Use
+one copy per target — that way you keep different settings for different
+targets easily.
 
 EXAMPLE
 
 ```sh
-cp model.bash my_project.bash
+cp my_config_model.bash my_project.bash
 ```
 
 **IMPORTANT:** The copy must stay in the **same folder** as
@@ -277,8 +277,8 @@ Your profile holds the share password **in plain text**. Keep it out of
 version control and restrict its permissions with `chmod 600 my_project.bash`.
 
 The provided `.gitignore` already ignores every `*.bash` file except
-`ez_smb_sync.bash` and `model.bash`, so your profiles are not committed by
-accident.
+`ez_smb_sync.bash` and `my_config_model.bash`, so your profiles are not
+committed by accident.
 
 ## About
 
