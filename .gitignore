@@ -1,0 +1,10 @@
+# Personal configuration profiles (copies of "model.bash") hold the share password in
+# plain text, so they are ignored by default. Only the project files below are tracked.
+*.bash
+!ez_smb_sync.bash
+!model.bash
+
+# Backup copies.
+*_BAK
+*.bak
+*~
