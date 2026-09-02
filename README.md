@@ -188,6 +188,10 @@ Samba ports, `445` first and `139` after it. A target that is switched off,
 unreachable or not running Samba is left out on purpose — picking it could only
 end in a failed mount.
 
+**A setup whose share is already mounted is left out too.** Its
+`DIR_MOUNT_REMOTE` is checked with `mountpoint`, and there is nothing left for a
+run to do there, so it is not offered rather than offered and then refused.
+
 When nothing is answering you get told so, instead of an empty list:
 
 ```
@@ -198,7 +202,9 @@ Looked in ".../configs".
 Two details worth knowing:
 
 - The files are **parsed**, not loaded, while the list is being built. Listing
-  your setups never runs the code inside them;
+  your setups never runs the code inside them. A `DIR_MOUNT_REMOTE` written with
+  `$HOME` or `~` is still resolved, since those two are common enough to be worth
+  it;
 - `my_config_model.bash` is the template, so it is never listed.
 
 The messages of this stage carry no prefix, since no setup has been chosen yet.
@@ -353,10 +359,13 @@ The list only shows setups whose host answers on a Samba port, so:
    timeout 2 bash -c '</dev/tcp/HOST/445' && echo open || echo closed
    ```
 
-3. The file is not in `configs/`, or does not end in `.bash`;
-4. `NET_SHARE_REMOTE` is missing or malformed. It must be `//IP_OR_NAME/SHARE_NAME`
+3. Its share is **already mounted**. Check with
+   `mountpoint /your/mount/folder`, and unmount it if the previous run left it
+   behind;
+4. The file is not in `configs/`, or does not end in `.bash`;
+5. `NET_SHARE_REMOTE` is missing or malformed. It must be `//IP_OR_NAME/SHARE_NAME`
    — the host is taken from between the leading `//` and the next `/`;
-5. The file is named `my_config_model.bash`, which is the template and is never
+6. The file is named `my_config_model.bash`, which is the template and is never
    listed.
 
 ### Crap! The directory can not be mounted!

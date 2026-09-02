@@ -34,11 +34,47 @@ if [ -n "$EZ_SMB_SYNC_LOADED" ]; then
 fi
 EZ_SMB_SYNC_LOADED=1
 
-f_setup_host() {
-    : 'Extract the host of a setup, out of its "NET_SHARE_REMOTE" value.
+f_setup_value() {
+    : 'Read one value out of a setup.
 
     The file is parsed instead of being loaded, so that listing the setups never
     runs the code of a configuration profile.
+
+    Args:
+        SETUP_FILE (str): Path of the configuration profile.
+        FIELD_NAME (str): Name of the parameter to read.
+
+    Returns:
+        The value, on the standard output. Empty when the parameter is not there.'
+
+    local SETUP_FILE="$1"
+    local FIELD_NAME="$2"
+    local FIELD_VALUE=""
+
+    FIELD_VALUE="$(grep -m 1 "^[[:space:]]*${FIELD_NAME}=" "$SETUP_FILE" 2> /dev/null)"
+    [ -n "$FIELD_VALUE" ] || return 0
+
+    # Drop the variable name, the surrounding whitespace and the quotes.
+    FIELD_VALUE="${FIELD_VALUE#*=}"
+    FIELD_VALUE="${FIELD_VALUE#"${FIELD_VALUE%%[![:space:]]*}"}"
+    FIELD_VALUE="${FIELD_VALUE%"${FIELD_VALUE##*[![:space:]]}"}"
+    FIELD_VALUE="${FIELD_VALUE#[\'\"]}"
+    FIELD_VALUE="${FIELD_VALUE%[\'\"]}"
+
+    # A home written as "$HOME" or "~" is common enough to be worth resolving.
+    # Nothing else is expanded: the value is data here, and running it to find
+    # out what it says is exactly what parsing avoids.
+    FIELD_VALUE="${FIELD_VALUE//\$\{HOME\}/$HOME}"
+    FIELD_VALUE="${FIELD_VALUE//\$HOME/$HOME}"
+    case "$FIELD_VALUE" in
+        "~"|"~/"*) FIELD_VALUE="$HOME${FIELD_VALUE#\~}" ;;
+    esac
+
+    printf '%s\n' "$FIELD_VALUE"
+}
+
+f_setup_host() {
+    : 'Extract the host of a setup, out of its "NET_SHARE_REMOTE" value.
 
     Args:
         SETUP_FILE (str): Path of the configuration profile.
@@ -47,25 +83,34 @@ f_setup_host() {
         The host name or IP, on the standard output. Empty when it cannot be
     determined.'
 
-    local SETUP_FILE="$1"
     local REMOTE_VALUE=""
     local HOST_VALUE=""
 
-    REMOTE_VALUE="$(grep -m 1 "^[[:space:]]*NET_SHARE_REMOTE=" "$SETUP_FILE" 2> /dev/null)"
+    REMOTE_VALUE="$(f_setup_value "$1" "NET_SHARE_REMOTE")"
     [ -n "$REMOTE_VALUE" ] || return 0
-
-    # Drop the variable name, the surrounding whitespace and the quotes.
-    REMOTE_VALUE="${REMOTE_VALUE#*=}"
-    REMOTE_VALUE="${REMOTE_VALUE#"${REMOTE_VALUE%%[![:space:]]*}"}"
-    REMOTE_VALUE="${REMOTE_VALUE%"${REMOTE_VALUE##*[![:space:]]}"}"
-    REMOTE_VALUE="${REMOTE_VALUE#[\'\"]}"
-    REMOTE_VALUE="${REMOTE_VALUE%[\'\"]}"
 
     # "//HOST/SHARE" -> "HOST".
     HOST_VALUE="${REMOTE_VALUE#//}"
     HOST_VALUE="${HOST_VALUE%%/*}"
 
     printf '%s\n' "$HOST_VALUE"
+}
+
+f_setup_is_mounted() {
+    : 'Tell whether the share of a setup is already mounted.
+
+    Args:
+        SETUP_FILE (str): Path of the configuration profile.
+
+    Returns:
+        0 when the mount point of the setup is already a mount point, 1 otherwise.'
+
+    local MOUNT_VALUE=""
+
+    MOUNT_VALUE="$(f_setup_value "$1" "DIR_MOUNT_REMOTE")"
+    [ -n "$MOUNT_VALUE" ] || return 1
+
+    mountpoint -q "$MOUNT_VALUE" 2> /dev/null
 }
 
 f_host_is_up() {
@@ -124,6 +169,10 @@ f_select_setup() {
 
         # The template is not a setup.
         [ "$SETUP_NAME" == "$CONFIG_MODEL_NAME" ] && continue
+
+        # Already mounted means there is nothing left for this run to do, so it
+        # is left out rather than offered and then refused.
+        f_setup_is_mounted "$SETUP_FILE" && continue
 
         HOST_VALUE="$(f_setup_host "$SETUP_FILE")"
         f_host_is_up "$HOST_VALUE" || continue
