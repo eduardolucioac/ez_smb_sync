@@ -1,6 +1,6 @@
 # ez_smb_sync
 
-![ezsmbsync](./images/ezsmbsync.png)
+![ez_smb_sync](./images/ez_smb_sync.png)
 
 Mounts a **Samba/CIFS** share and keeps a local folder in sync with it using
 **Unison**, driven by a small interactive prompt. Perfect for software
