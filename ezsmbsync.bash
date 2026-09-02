@@ -182,12 +182,13 @@ f_select_setup() {
     done
 
     if [ ${#SETUP_PATHS[@]} -eq 0 ]; then
-        echo "No setup found with a reachable host answering on Samba." >&2
+        echo "No setup ready to mount (host answering on Samba, share not mounted"\
+" yet)." >&2
         echo "Looked in \"$CONFIGS_DIR\"." >&2
         return 1
     fi
 
-    echo "Setups with a reachable host and Samba available:" >&2
+    echo "Setups ready to mount (host answering on Samba, share not mounted yet):" >&2
     for INDEX_VALUE in "${!SETUP_PATHS[@]}"; do
         printf '  %2d) %s\n' "$((INDEX_VALUE + 1))" "${SETUP_LABELS[$INDEX_VALUE]}" >&2
     done
@@ -576,7 +577,29 @@ f_unmount_share() {
 # there is nothing to choose.
 # [Ref(s).: https://stackoverflow.com/a/2684300/3223785 ]
 if [ "${BASH_SOURCE[0]}" == "$0" ]; then
-    SETUP_PATH="$(f_select_setup)" || exit 1
+    if [ -n "${1:-}" ]; then
+        # Naming a setup goes straight to it, past the filters of the list. That
+        # is the way back to a share the list will not show any more: one left
+        # mounted on purpose, after the unmount was declined, still needs a run to
+        # sync it and to unmount it properly.
+        if [ -f "$1" ]; then
+            SETUP_PATH="$1"
+        elif [ -f "$CONFIGS_DIR/$1.bash" ]; then
+            SETUP_PATH="$CONFIGS_DIR/$1.bash"
+        else
+            echo "There is no setup called \"$1\" in \"$CONFIGS_DIR\"." >&2
+            echo "What is there:" >&2
+            for SETUP_FILE in "$CONFIGS_DIR"/*.bash; do
+                [ -f "$SETUP_FILE" ] || continue
+                SETUP_NAME="$(basename "$SETUP_FILE" .bash)"
+                [ "$SETUP_NAME" == "$CONFIG_MODEL_NAME" ] && continue
+                echo "  $SETUP_NAME" >&2
+            done
+            exit 1
+        fi
+    else
+        SETUP_PATH="$(f_select_setup)" || exit 1
+    fi
 
     LOG_TAG="$(basename "$SETUP_PATH" .bash)"
     echo "--- [[ $LOG_TAG ]] Setup loaded. "

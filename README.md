@@ -23,6 +23,7 @@ other way around.
    * [4. Run it](#4-run-it)
    * [5. Optional: turn it into a command](#5-optional-turn-it-into-a-command)
 - [Choosing a setup](#choosing-a-setup)
+   * [Going straight to one](#going-straight-to-one)
 - [Commands](#commands)
 - [Configuration parameters](#configuration-parameters)
 - [Configuration check](#configuration-check)
@@ -137,7 +138,8 @@ else, and that matters because it holds a password.
 ./ezsmbsync.bash
 ```
 
-Pick your setup from the list and let the magic happen!
+Pick your setup from the list and let the magic happen! Naming one goes straight
+to it: `./ezsmbsync.bash my_project`.
 
 ### 5. Optional: turn it into a command
 
@@ -176,7 +178,7 @@ Running `ezsmbsync.bash` lists what is in `configs/`, one line per file, and
 asks which one to use:
 
 ```
-Setups with a reachable host and Samba available:
+Setups ready to mount (host answering on Samba, share not mounted yet):
    1) my_project                              192.168.122.59
    2) my_client_name                          fileserver.local
 number:
@@ -195,7 +197,7 @@ run to do there, so it is not offered rather than offered and then refused.
 When nothing is answering you get told so, instead of an empty list:
 
 ```
-No setup found with a reachable host answering on Samba.
+No setup ready to mount (host answering on Samba, share not mounted yet).
 Looked in ".../configs".
 ```
 
@@ -213,6 +215,27 @@ From the moment you pick one, every line is prefixed with its name.
 **TIP:** The probe is a TCP connection with a short timeout, so a long list
 stays quick. It is not a `ping` — a host may well answer ICMP with no Samba
 running on it, and that would be of no use here.
+
+### Going straight to one
+
+Naming a setup skips the list, and the filters with it:
+
+```sh
+ezsmbsync my_project
+```
+
+That is the way back to a share the list will not show any more. Declining the
+forced unmount leaves it mounted on purpose, and it still needs a run to sync it
+and to unmount it properly — naming it is how you get there.
+
+A name that is not there says so, and shows what is:
+
+```
+There is no setup called "typo" in ".../configs".
+What is there:
+  my_project
+  my_client_name
+```
 
 ---
 
@@ -360,8 +383,8 @@ The list only shows setups whose host answers on a Samba port, so:
    ```
 
 3. Its share is **already mounted**. Check with
-   `mountpoint /your/mount/folder`, and unmount it if the previous run left it
-   behind;
+   `mountpoint /your/mount/folder`. Unmount it, or name the setup to go straight
+   to it: `ezsmbsync my_project`;
 4. The file is not in `configs/`, or does not end in `.bash`;
 5. `NET_SHARE_REMOTE` is missing or malformed. It must be `//IP_OR_NAME/SHARE_NAME`
    — the host is taken from between the leading `//` and the next `/`;
