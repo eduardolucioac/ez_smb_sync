@@ -1,9 +1,9 @@
-# Personal configuration profiles (copies of "my_config_model.bash") hold the share
-# password in plain text, so they are ignored by default. Only the project files below
-# are tracked.
-*.bash
-!ezsmbsync.bash
-!my_config_model.bash
+# Setups hold the share password in plain text, so nothing inside "configs" is
+# tracked, apart from the template. The rule is scoped to that folder on purpose:
+# a name based rule would let a setup named after a project file slip into a
+# commit, password included.
+/configs/*
+!/configs/my_config_model.bash
 
 # Backup copies.
 *_BAK
