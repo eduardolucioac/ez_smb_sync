@@ -1,9 +1,163 @@
 #!/bin/bash
 
-# Get the name of the script to identify it. Useful if there are several scripts
-# running.
-# [Ref(s).: https://stackoverflow.com/a/192337/3223785 ]
-SCRIPT_FILENAME="$(basename "$(test -L "$0" && readlink "$0" || echo "$0")")"
+# Real path of this script, with every symbolic link resolved. It matters when the
+# script is called through a link in a "bin" folder, a common way of turning it into
+# a regular terminal command: without resolving the link, the setups would be looked
+# for beside the link instead of beside the script.
+# [Ref(s).: https://stackoverflow.com/a/246128/3223785 ]
+EZ_SMB_SYNC_PATH="$(readlink -f "$0" 2> /dev/null || echo "$0")"
+
+# Absolute folder of this script, so that the setups are found no matter where it
+# is called from.
+EZ_SMB_SYNC_DIR="$(cd "$(dirname "$EZ_SMB_SYNC_PATH")" && pwd)"
+
+# Folder holding the configuration profiles ("setups").
+CONFIGS_DIR="$EZ_SMB_SYNC_DIR/configs"
+
+# Name of the template, which is not a usable setup and is never listed.
+CONFIG_MODEL_NAME="my_config_model"
+
+# Seconds to wait for a host while checking whether it is up. Kept short so that
+# listing many setups stays quick.
+SETUP_PROBE_TIMEOUT=2
+
+# Prefix of every log line. It becomes the setup name once one is chosen, so that
+# several terminals running different setups can be told apart. Until then there is
+# no setup to name, and the messages of the selection stage carry no prefix at all.
+LOG_TAG="$(basename "$EZ_SMB_SYNC_PATH")"
+
+# Guard against the sourcing line that older profiles carry on their last line,
+# which loads this engine. Without it, loading such a profile would load this
+# engine a second time, recursively.
+if [ -n "$EZ_SMB_SYNC_LOADED" ]; then
+    return 0 2> /dev/null || exit 0
+fi
+EZ_SMB_SYNC_LOADED=1
+
+f_setup_host() {
+    : 'Extract the host of a setup, out of its "NET_SHARE_REMOTE" value.
+
+    The file is parsed instead of being loaded, so that listing the setups never
+    runs the code of a configuration profile.
+
+    Args:
+        SETUP_FILE (str): Path of the configuration profile.
+
+    Returns:
+        The host name or IP, on the standard output. Empty when it cannot be
+    determined.'
+
+    local SETUP_FILE="$1"
+    local REMOTE_VALUE=""
+    local HOST_VALUE=""
+
+    REMOTE_VALUE="$(grep -m 1 "^[[:space:]]*NET_SHARE_REMOTE=" "$SETUP_FILE" 2> /dev/null)"
+    [ -n "$REMOTE_VALUE" ] || return 0
+
+    # Drop the variable name, the surrounding whitespace and the quotes.
+    REMOTE_VALUE="${REMOTE_VALUE#*=}"
+    REMOTE_VALUE="${REMOTE_VALUE#"${REMOTE_VALUE%%[![:space:]]*}"}"
+    REMOTE_VALUE="${REMOTE_VALUE%"${REMOTE_VALUE##*[![:space:]]}"}"
+    REMOTE_VALUE="${REMOTE_VALUE#[\'\"]}"
+    REMOTE_VALUE="${REMOTE_VALUE%[\'\"]}"
+
+    # "//HOST/SHARE" -> "HOST".
+    HOST_VALUE="${REMOTE_VALUE#//}"
+    HOST_VALUE="${HOST_VALUE%%/*}"
+
+    printf '%s\n' "$HOST_VALUE"
+}
+
+f_host_is_up() {
+    : 'Tell whether a host is answering on a Samba port.
+
+    The SMB port itself is probed, not ICMP: a host that answers a ping but has no
+    Samba service running is of no use here, and many hosts drop ICMP altogether.
+
+    Args:
+        HOST_VALUE (str): Host name or IP.
+
+    Returns:
+        0 when the host answers, 1 otherwise.'
+
+    local HOST_VALUE="$1"
+    local PORT_VALUE=""
+
+    [ -n "$HOST_VALUE" ] || return 1
+
+    # 445 is the modern SMB port, 139 the legacy NetBIOS one, still used by old
+    # servers.
+    for PORT_VALUE in 445 139; do
+        if timeout "$SETUP_PROBE_TIMEOUT" bash -c \
+                "exec 3<>/dev/tcp/$HOST_VALUE/$PORT_VALUE" 2> /dev/null; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+f_select_setup() {
+    : 'List the reachable setups and let the user choose one.
+
+    Returns:
+        The path of the chosen configuration profile, on the standard output.
+        1 when there is nothing to choose from or the choice is invalid.'
+
+    local SETUP_FILE=""
+    local SETUP_NAME=""
+    local HOST_VALUE=""
+    local CHOICE_VALUE=""
+    local INDEX_VALUE=0
+    local SETUP_PATHS=()
+    local SETUP_LABELS=()
+
+    if [ ! -d "$CONFIGS_DIR" ]; then
+        echo "The \"$CONFIGS_DIR\" folder does not exist." >&2
+        return 1
+    fi
+
+    for SETUP_FILE in "$CONFIGS_DIR"/*.bash; do
+        [ -f "$SETUP_FILE" ] || continue
+
+        SETUP_NAME="$(basename "$SETUP_FILE" .bash)"
+
+        # The template is not a setup.
+        [ "$SETUP_NAME" == "$CONFIG_MODEL_NAME" ] && continue
+
+        HOST_VALUE="$(f_setup_host "$SETUP_FILE")"
+        f_host_is_up "$HOST_VALUE" || continue
+
+        SETUP_PATHS+=("$SETUP_FILE")
+        SETUP_LABELS+=("$(printf '%-40s %s' "$SETUP_NAME" "$HOST_VALUE")")
+    done
+
+    if [ ${#SETUP_PATHS[@]} -eq 0 ]; then
+        echo "No setup found with a reachable host answering on Samba." >&2
+        echo "Looked in \"$CONFIGS_DIR\"." >&2
+        return 1
+    fi
+
+    echo "Setups with a reachable host and Samba available:" >&2
+    for INDEX_VALUE in "${!SETUP_PATHS[@]}"; do
+        printf '  %2d) %s\n' "$((INDEX_VALUE + 1))" "${SETUP_LABELS[$INDEX_VALUE]}" >&2
+    done
+
+    read -r -p "number: " CHOICE_VALUE
+
+    case "$CHOICE_VALUE" in
+        ''|*[!0-9]*)
+            echo "Invalid choice." >&2
+            return 1
+            ;;
+    esac
+    if [ "$CHOICE_VALUE" -lt 1 ] || [ "$CHOICE_VALUE" -gt ${#SETUP_PATHS[@]} ]; then
+        echo "Invalid choice." >&2
+        return 1
+    fi
+
+    printf '%s\n' "${SETUP_PATHS[$((CHOICE_VALUE - 1))]}"
+}
 
 function f_ask_support() {
     : 'Display a notice asking for a donation.'
@@ -30,7 +184,7 @@ f_config_error() {
     Args:
         MESSAGE (str): Description of the problem.'
 
-    echo "--- [[ $SCRIPT_FILENAME ]] CONFIG ERROR: $1"
+    echo "--- [[ $LOG_TAG ]] CONFIG ERROR: $1"
     CONFIG_ERRORS=$((CONFIG_ERRORS + 1))
 }
 
@@ -188,7 +342,7 @@ f_provide_prompt() {
     while :; do
         case "$COMMAND_VALUE" in
             "quit")
-                echo "--- [[ $SCRIPT_FILENAME ]] Trying to quit! "
+                echo "--- [[ $LOG_TAG ]] Trying to quit! "
                 f_run_unison "final"
 
                 # Try unmounting the share if it is still mounted.
@@ -206,7 +360,7 @@ f_provide_prompt() {
                 f_run_unison "by command" "owsfl"
                 ;;
             "help")
-                    echo "--- [[ $SCRIPT_FILENAME ]]
+                    echo "--- [[ $LOG_TAG ]]
  INSTRUCTIONS:
   . sync - Synchronize according to the \"ONE_WAY_SYNC_FROM_REMOTE\" parameter.
   . owsfr - Force a one way sync (mirroring, CAUTION!) from remote.
@@ -215,7 +369,7 @@ f_provide_prompt() {
                 ;;
             *)
                 if [ -n "$COMMAND_VALUE" ]; then
-                    echo "--- [[ $SCRIPT_FILENAME ]] Unknown command \"$COMMAND_VALUE\"! Use \"help\" for instructions."
+                    echo "--- [[ $LOG_TAG ]] Unknown command \"$COMMAND_VALUE\"! Use \"help\" for instructions."
                 fi
                 ;;
         esac
@@ -271,7 +425,7 @@ f_run_unison() {
         # avoids accidents if the directory is empty for some reason.
         if ( mountpoint -q "$DIR_MOUNT_REMOTE" ) &&\
                 [ -n "$(ls -A "$DIR_MOUNT_SYNC_REMOTE_NOW")" ] ; then
-            echo "--- [[ $SCRIPT_FILENAME ]] ---------------------------------- "\
+            echo "--- [[ $LOG_TAG ]] ---------------------------------- "\
 "Unison \"$EXECUTION_CONTEXT\" execution! ---------------------------------- "
 
             # NOTE: The command is built as an array so that every path is passed to
@@ -286,45 +440,114 @@ f_run_unison() {
                 UNISON_CMD+=(-force "$DIR_MOUNT_SYNC_LOCAL")
                 # [Ref(s).: https://stackoverflow.com/a/54732719/3223785 ]
 
-                echo "--- [[ $SCRIPT_FILENAME ]] One way sync from local (command)."
+                echo "--- [[ $LOG_TAG ]] One way sync from local (command)."
             elif [ "$SYNC_MODE_FROM_CMD" == "owsfr" ]; then
                 UNISON_CMD+=(-force "$DIR_MOUNT_SYNC_REMOTE_NOW")
-                echo "--- [[ $SCRIPT_FILENAME ]] One way sync from remote (command)."
+                echo "--- [[ $LOG_TAG ]] One way sync from remote (command)."
             elif [ ${ONE_WAY_SYNC_FROM_REMOTE} -eq 1 ]; then
                 UNISON_CMD+=(-force "$DIR_MOUNT_SYNC_REMOTE_NOW")
-                echo "--- [[ $SCRIPT_FILENAME ]] One way sync from remote enabled."
+                echo "--- [[ $LOG_TAG ]] One way sync from remote enabled."
             fi
 
             "${UNISON_CMD[@]}"
-            echo "--- [[ $SCRIPT_FILENAME ]] -----------------------------------"\
+            echo "--- [[ $LOG_TAG ]] -----------------------------------"\
 "------------------------------------------------------------------ "
         fi
 
     else
-        echo "--- [[ $SCRIPT_FILENAME ]] Sync disabled."
+        echo "--- [[ $LOG_TAG ]] Sync disabled."
     fi
 }
 
 f_unmount_share() {
     : 'Unmount the Samba share.
 
-    Unmount the Samba share if conditions exist.'
+    Unmount the Samba share if conditions exist. When the regular forced unmount
+    fails, which usually means something is still using the share, offer a lazy
+    unmount ("-l") after warning about what it implies.'
 
-    if ( mountpoint -q "$DIR_MOUNT_REMOTE" ) ; then
-        echo "--- [[ $SCRIPT_FILENAME ]] Unmounting the network path! "
-        sudo umount -f "$DIR_MOUNT_REMOTE"
+    ( mountpoint -q "$DIR_MOUNT_REMOTE" ) || return 0
+
+    echo "--- [[ $LOG_TAG ]] Unmounting the network path! "
+    if sudo umount -f "$DIR_MOUNT_REMOTE"; then
+        return 0
     fi
+
+    echo "--- [[ $LOG_TAG ]] The share could not be unmounted. It is busy: something"\
+" is still using \"$DIR_MOUNT_REMOTE\"."
+
+    # Point at the culprits when possible, so that the decision below is an informed
+    # one instead of a guess.
+    if command -v fuser > /dev/null 2>&1; then
+        echo "--- [[ $LOG_TAG ]] What is holding it:"
+        fuser -vm "$DIR_MOUNT_REMOTE" 2>&1 | sed 's/^/    /'
+    else
+        echo "--- [[ $LOG_TAG ]] Install \"psmisc\" to see what is holding it"\
+" (\"fuser -vm\")."
+    fi
+
+    echo "
+--- [[ $LOG_TAG ]]
+
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ Close whatever still depends on this share BEFORE forcing it. A terminal sitting
+ inside the folder, an editor with an open file, a running build -- any of them
+ keeps the share busy.
+
+ A lazy unmount (\"umount -l\") detaches the folder right away and only releases
+ it once nothing uses it any more. Whatever is still writing at that moment may
+ never reach the server, so DATA CAN BE LOST.
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+"
+
+    local ANSWER_VALUE=""
+    read -r -p "Force the unmount anyway? [y/N]: " ANSWER_VALUE || ANSWER_VALUE=""
+
+    case "$ANSWER_VALUE" in
+        [yY]|[yY][eE][sS])
+            echo "--- [[ $LOG_TAG ]] Forcing a lazy unmount! "
+            if sudo umount -l "$DIR_MOUNT_REMOTE"; then
+                echo "--- [[ $LOG_TAG ]] Detached. It is released once nothing uses"\
+" it any more."
+            else
+                echo "--- [[ $LOG_TAG ]] Even the lazy unmount failed. Unmount it by"\
+" hand later: \"sudo umount -l $DIR_MOUNT_REMOTE\"."
+            fi
+            ;;
+        *)
+            echo "--- [[ $LOG_TAG ]] Left mounted, as requested. Unmount it when you"\
+" are done: \"sudo umount $DIR_MOUNT_REMOTE\"."
+            ;;
+    esac
 }
+
+# When this file is executed directly it drives everything: it lists the setups,
+# asks which one to use and loads it. When it is loaded by an older profile, which
+# carries a sourcing line on its last line, the variables are already in place and
+# there is nothing to choose.
+# [Ref(s).: https://stackoverflow.com/a/2684300/3223785 ]
+if [ "${BASH_SOURCE[0]}" == "$0" ]; then
+    SETUP_PATH="$(f_select_setup)" || exit 1
+
+    LOG_TAG="$(basename "$SETUP_PATH" .bash)"
+    echo "--- [[ $LOG_TAG ]] Setup loaded. "
+
+    # NOTE: The profile only assigns variables, so loading it has no side effect.
+    # The guard at the top of this file keeps an older profile, which still carries
+    # the sourcing line, from loading this engine all over again.
+    # shellcheck source=/dev/null
+    . "$SETUP_PATH"
+fi
 
 # Check the configuration before touching anything.
 if ! f_check_config ; then
-    echo "--- [[ $SCRIPT_FILENAME ]] Fix the configuration above and try again! :("
+    echo "--- [[ $LOG_TAG ]] Fix the configuration above and try again! :("
     exit 1
 fi
 
 # Mount the Samba share if conditions exist.
 if ( ! mountpoint -q "$DIR_MOUNT_REMOTE" ) ; then
-    echo "--- [[ $SCRIPT_FILENAME ]] Trying to mount the network path! "
+    echo "--- [[ $LOG_TAG ]] Trying to mount the network path! "
     # NOTE: The options below are handed to "mount" as one single argument, so they
     # must NOT be wrapped in shell quotes. Values that would corrupt this list were
     # already rejected by "f_check_config".
@@ -344,7 +567,7 @@ if ( ! mountpoint -q "$DIR_MOUNT_REMOTE" ) ; then
 
     sudo mount -t cifs -o "$MOUNT_OPTIONS" "$NET_SHARE_REMOTE" "$DIR_MOUNT_REMOTE"
 else
-    echo "--- [[ $SCRIPT_FILENAME ]] Hey! The remote directory is already mounted! ;)"
+    echo "--- [[ $LOG_TAG ]] Hey! The remote directory is already mounted! ;)"
 fi
 
 # Starts the script's interactive prompt and control scheme if conditions exist.
@@ -352,7 +575,7 @@ if ( mountpoint -q "$DIR_MOUNT_REMOTE" ) ; then
     f_ask_support
     f_run_unison "initial"
     echo "
---- [[ $SCRIPT_FILENAME ]]
+--- [[ $LOG_TAG ]]
 
  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             To stop the script type \"quit\" command and press Enter!
@@ -362,9 +585,9 @@ if ( mountpoint -q "$DIR_MOUNT_REMOTE" ) ; then
 "
     f_provide_prompt
 else
-    echo "--- [[ $SCRIPT_FILENAME ]] Crap! The directory can not be mounted! :("
+    echo "--- [[ $LOG_TAG ]] Crap! The directory can not be mounted! :("
 fi
 
-echo "--- [[ $SCRIPT_FILENAME ]] Script ended! Thanks! :) [<o>] Brazil-DF"
+echo "--- [[ $LOG_TAG ]] Script ended! Thanks! :) [<o>] Brazil-DF"
 
 exit 0

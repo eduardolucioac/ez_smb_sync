@@ -2,7 +2,7 @@
 # password in plain text, so they are ignored by default. Only the project files below
 # are tracked.
 *.bash
-!ez_smb_sync.bash
+!ezsmbsync.bash
 !my_config_model.bash
 
 # Backup copies.

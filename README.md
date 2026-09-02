@@ -1,6 +1,6 @@
 # ez_smb_sync
 
-![ez_smb_sync](./images/ez_smb_sync.png)
+![ezsmbsync](./images/ezsmbsync.png)
 
 Mounts a **Samba/CIFS** share and keeps a local folder in sync with it using
 **Unison**, driven by a small interactive prompt. Perfect for software
@@ -18,15 +18,19 @@ other way around.
 - [How it works](#how-it-works)
 - [Installation](#installation)
    * [1. Prerequisites](#1-prerequisites)
-   * [2. Create your configuration profile](#2-create-your-configuration-profile)
-   * [3. Give execute permissions](#3-give-execute-permissions)
+   * [2. Create your setup](#2-create-your-setup)
+   * [3. Give permissions](#3-give-permissions)
    * [4. Run it](#4-run-it)
+   * [5. Optional: turn it into a command](#5-optional-turn-it-into-a-command)
+- [Choosing a setup](#choosing-a-setup)
 - [Commands](#commands)
 - [Configuration parameters](#configuration-parameters)
 - [Configuration check](#configuration-check)
 - [One way sync (mirroring)](#one-way-sync-mirroring)
 - [Safety measures](#safety-measures)
+- [When the share is busy](#when-the-share-is-busy)
 - [Troubleshooting](#troubleshooting)
+   * [My setup is not listed](#my-setup-is-not-listed)
    * [Crap! The directory can not be mounted!](#crap-the-directory-can-not-be-mounted)
    * [Nothing is synchronized](#nothing-is-synchronized)
    * [Sudo asks for a password on every run](#sudo-asks-for-a-password-on-every-run)
@@ -37,10 +41,12 @@ other way around.
 
 ```
 ez_smb_sync/
-├── ez_smb_sync.bash        # the engine — mounts, syncs and provides the prompt
-├── my_config_model.bash    # configuration profile template (copy it, don't run it)
+├── ezsmbsync.bash          # run this — lists your setups, mounts, syncs and prompts
+├── configs/
+│   ├── my_config_model.bash    # setup template (copy it, don't fill it in)
+│   └── my_project.bash         # your setups, one file per target
 ├── images/
-├── .gitignore              # keeps your profiles (with passwords) out of git
+├── .gitignore              # keeps your setups (with passwords) out of git
 ├── LICENSE
 └── README.md               # this file
 ```
@@ -49,30 +55,27 @@ ez_smb_sync/
 
 ## How it works
 
-You never run `ez_smb_sync.bash` directly. You run **your profile**, and the
-profile loads the engine on its last line:
+You run **`ezsmbsync.bash`**. It reads the setups in `configs/`, shows you the
+ones whose target is actually answering, and loads the one you pick.
 
-```sh
-. ./ez_smb_sync.bash
-```
-
-That's why one copy per target works so nicely — each profile carries its own
-settings, and the engine is shared. It also means every log line is prefixed
-with the **profile name**, so you can tell your terminals apart:
+One file per target keeps different settings apart, and the file name — without
+the `.bash` extension — is what you see in the list. It also becomes the prefix
+of every log line, so you can tell your terminals apart:
 
 ```
---- [[ my_project.bash ]] Trying to mount the network path!
+--- [[ my_project ]] Trying to mount the network path!
 ```
 
 The run goes like this:
 
-1. The configuration is validated (see [Configuration check](#configuration-check));
-2. The share is mounted with `mount -t cifs` — via `sudo`;
-3. An **initial** synchronization runs;
-4. The interactive prompt opens, and stays open;
-5. On `quit`, a **final** synchronization runs and the share is unmounted.
+1. The setups are listed and you pick one (see [Choosing a setup](#choosing-a-setup));
+2. The configuration is validated (see [Configuration check](#configuration-check));
+3. The share is mounted with `mount -t cifs` — via `sudo`;
+4. An **initial** synchronization runs;
+5. The interactive prompt opens, and stays open;
+6. On `quit`, a **final** synchronization runs and the share is unmounted.
 
-Because of steps 3 and 5, changes made while the script was running are never
+Because of steps 4 and 6, changes made while the script was running are never
 left behind.
 
 ---
@@ -97,42 +100,113 @@ sudo pacman -S --needed unison cifs-utils
 **NOTE:** `sudo` rights are required, since mounting and unmounting a share
 is a privileged operation.
 
-### 2. Create your configuration profile
+### 2. Create your setup
 
-Copy `my_config_model.bash` and give it a name that identifies the target. Use
-one copy per target — that way you keep different settings for different
-targets easily.
+Copy `configs/my_config_model.bash` and give it a name that identifies the
+target. Use one copy per target — that way you keep different settings for
+different targets easily.
 
 EXAMPLE
 
 ```sh
-cp my_config_model.bash my_project.bash
+cp configs/my_config_model.bash configs/my_project.bash
 ```
 
-**IMPORTANT:** The copy must stay in the **same folder** as
-`ez_smb_sync.bash`, because it loads the engine through a relative path.
+**IMPORTANT:** The copy must stay in the **`configs`** folder, which is where
+the setups are looked for. The name you choose, without the `.bash` extension,
+is what shows up in the list.
 
 Now fill in the parameters. Every one of them is documented inline in the
 file itself, so it's worth reading it before your first run. See
 [Configuration parameters](#configuration-parameters) for the summary.
 
-### 3. Give execute permissions
+### 3. Give permissions
 
 ```sh
-chmod a+x ez_smb_sync.bash
-chmod 600 my_project.bash && chmod u+x my_project.bash
+chmod a+x ezsmbsync.bash
+chmod 600 configs/my_project.bash
 ```
 
-**TIP:** `600` before `u+x` is not redundant — it drops the read permission
-of everybody else first, which matters because your profile holds a password.
+**TIP:** Your setup does **not** need execute permission — it is loaded, not
+run. What it does need is `600`, which drops the read permission of everybody
+else, and that matters because it holds a password.
 
 ### 4. Run it
 
 ```sh
-./my_project.bash
+./ezsmbsync.bash
 ```
 
-... and let the magic happen!
+Pick your setup from the list and let the magic happen!
+
+### 5. Optional: turn it into a command
+
+Link it into a folder that is in your `PATH` and you can call it from anywhere,
+without typing the path:
+
+```sh
+mkdir -p ~/.local/bin
+ln -s "$(pwd)/ezsmbsync.bash" ~/.local/bin/ezsmbsync
+```
+
+Then, from any folder:
+
+```sh
+ezsmbsync
+```
+
+**NOTE:** `~/.local/bin` is the usual place for a user's own commands, but not
+every distribution puts it in the `PATH` by default. Check with
+`echo "$PATH" | tr ':' '\n' | grep local/bin` and, if nothing comes out, add
+this to your `~/.bashrc`:
+
+```sh
+case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) PATH="$HOME/.local/bin:$PATH" ;; esac
+```
+
+**TIP:** Linking is better than copying. The script resolves the link before
+looking for `configs/`, so it always finds the setups beside the **real** file —
+and a copy would go stale the moment you update the project.
+
+---
+
+## Choosing a setup
+
+Running `ezsmbsync.bash` lists what is in `configs/`, one line per file, and
+asks which one to use:
+
+```
+Setups with a reachable host and Samba available:
+   1) my_project                              192.168.122.59
+   2) my_client_name                          fileserver.local
+number:
+```
+
+**Only setups whose host is answering are listed.** The host is taken from the
+`NET_SHARE_REMOTE` of each file (`//HOST/SHARE` → `HOST`) and probed on the
+Samba ports, `445` first and `139` after it. A target that is switched off,
+unreachable or not running Samba is left out on purpose — picking it could only
+end in a failed mount.
+
+When nothing is answering you get told so, instead of an empty list:
+
+```
+No setup found with a reachable host answering on Samba.
+Looked in ".../configs".
+```
+
+Two details worth knowing:
+
+- The files are **parsed**, not loaded, while the list is being built. Listing
+  your setups never runs the code inside them;
+- `my_config_model.bash` is the template, so it is never listed.
+
+The messages of this stage carry no prefix, since no setup has been chosen yet.
+From the moment you pick one, every line is prefixed with its name.
+
+**TIP:** The probe is a TCP connection with a short timeout, so a long list
+stays quick. It is not a `ping` — a host may well answer ICMP with no Samba
+running on it, and that would be of no use here.
 
 ---
 
@@ -229,11 +303,61 @@ mirror right away. Be sure of the direction before typing them.
   **not empty**. That prevents a dropped share — which turns the mount point
   back into an ordinary empty folder — from being mirrored as a mass deletion;
 - Permissions are ignored (`-perms 0`), which is required on CIFS;
-- The share is unmounted on exit, so nothing is left hanging.
+- The share is unmounted on exit, so nothing is left hanging;
+- A **busy** share is never force-detached behind your back. When the regular
+  unmount fails, what is holding it is listed and you are asked before a lazy
+  unmount is attempted (see [When the share is busy](#when-the-share-is-busy)).
+
+---
+
+## When the share is busy
+
+On `quit` the share is unmounted with `umount -f`. That fails when something is
+still using it — a terminal sitting inside the folder, an editor with an open
+file, a running build. Instead of giving up silently or forcing it, the script
+shows you what is holding the share and asks:
+
+```
+--- [[ my_project ]] The share could not be unmounted. It is busy: something is
+ still using "/my/mount/folder".
+--- [[ my_project ]] What is holding it:
+                         USER    PID ACCESS COMMAND
+    /my/mount/folder:    eduardo 4242 ..c.. bash
+Force the unmount anyway? [y/N]:
+```
+
+**Answer `N`, close whatever is listed, and quit again.** That is the safe path,
+and it is the default.
+
+Answering `y` runs `umount -l`, a **lazy** unmount: the folder is detached right
+away and only really released once nothing uses it any more. Whatever is still
+writing at that moment may never reach the server, so **data can be lost**. It
+exists for when you cannot close the offender — not as a shortcut.
+
+**NOTE:** Listing the culprits needs `fuser`, from the `psmisc` package. Without
+it the question is still asked, only without the list.
 
 ---
 
 ## Troubleshooting
+
+### My setup is not listed
+
+The list only shows setups whose host answers on a Samba port, so:
+
+1. The target is switched off or unreachable. Check it with
+   `ping HOST`, keeping in mind that a host may drop ICMP and still serve Samba;
+2. Samba is not running on the target. Check the port straight away:
+
+   ```sh
+   timeout 2 bash -c '</dev/tcp/HOST/445' && echo open || echo closed
+   ```
+
+3. The file is not in `configs/`, or does not end in `.bash`;
+4. `NET_SHARE_REMOTE` is missing or malformed. It must be `//IP_OR_NAME/SHARE_NAME`
+   — the host is taken from between the leading `//` and the next `/`;
+5. The file is named `my_config_model.bash`, which is the template and is never
+   listed.
 
 ### Crap! The directory can not be mounted!
 
@@ -273,12 +397,12 @@ it just means a previous run left the share mounted:
 
 ## Security note
 
-Your profile holds the share password **in plain text**. Keep it out of
-version control and restrict its permissions with `chmod 600 my_project.bash`.
+Your setup holds the share password **in plain text**. Keep it out of version
+control and restrict its permissions with `chmod 600 configs/my_project.bash`.
 
 The provided `.gitignore` already ignores every `*.bash` file except
-`ez_smb_sync.bash` and `my_config_model.bash`, so your profiles are not
-committed by accident.
+`ezsmbsync.bash` and `my_config_model.bash`, so the setups in `configs/` are
+not committed by accident.
 
 ## About
 

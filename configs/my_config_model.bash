@@ -5,11 +5,21 @@
 # HOW TO USE THIS FILE:
 #  1. Make a copy of this file and give it a name to identify the target. Examples:
 # "my_project.bash", "my_client_name.bash" and so on. Use one copy per target, that
-# way you keep different settings for different targets easily.
-#  2. The copy must be in the SAME directory of the "ez_smb_sync.bash" file.
+# way you keep different settings for different targets easily. The name you choose
+# is what shows up in the setup list, without the ".bash" extension.
+#  2. The copy must stay in this "configs" folder, beside this file.
 #  3. Fill in the parameters of the configuration block below.
-#  4. Give it execute permission (e.g. "chmod u+x my_project.bash").
-#  5. Run it from its own directory (e.g. "./my_project.bash").
+#  4. Restrict its permissions, since it holds a password (e.g.
+# "chmod 600 my_project.bash"). It does NOT need execute permission.
+#  5. Run "ezsmbsync.bash" and pick your setup from the list. It can also be
+# linked into a folder of your PATH and called as a plain command (see the
+# "Installation" section of the README).
+#
+# WHY YOUR SETUP MAY NOT BE LISTED:
+#  Only the setups whose host is answering are listed. The host is taken from
+# "NET_SHARE_REMOTE" below and probed on the Samba ports (445, then 139). A target
+# that is switched off, unreachable or not running Samba is left out of the list on
+# purpose, so that you never pick something that cannot work.
 #
 # REQUIREMENTS:
 #  . "unison", which performs the synchronization (Debian based example:
@@ -25,8 +35,8 @@
 #
 # SECURITY WARNING:
 #  This file holds the share password in plain text. Keep it out of version control
-# (the provided ".gitignore" already does that) and restrict its permissions with
-# "chmod 600 my_project.bash".
+# (the provided ".gitignore" already ignores this whole folder) and restrict its
+# permissions with "chmod 600 my_project.bash".
 #
 # CONFIGURATION CHECK:
 #  The parameters below are validated when the script starts. Surrounding spaces and
@@ -106,6 +116,3 @@ I_SUPPORT_FREE_SOFTWARE_N_THIS_WORK=0
 # Eduardo Lúcio Amorim Costa
 # Brazil-DF
 # https://www.linkedin.com/in/eduardo-software-livre/
-
-# This line runs "ez_smb_sync.bash". DO NOT REMOVE IT!
-. ./ez_smb_sync.bash
