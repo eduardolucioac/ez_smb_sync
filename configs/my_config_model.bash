@@ -16,10 +16,12 @@
 # "Installation" section of the README).
 #
 # WHY YOUR SETUP MAY NOT BE LISTED:
-#  Only the setups whose host is answering are listed. The host is taken from
-# "NET_SHARE_REMOTE" below and probed on the Samba ports (445, then 139). A target
-# that is switched off, unreachable or not running Samba is left out of the list on
-# purpose, so that you never pick something that cannot work.
+#  A setup is listed when its host is answering, or when its share is already
+# mounted. The host is taken from "NET_SHARE_REMOTE" below and probed on the Samba
+# ports (445, then 139), so a target that is switched off, unreachable or not
+# running Samba is left out on purpose: picking it could only end in a failed
+# mount. One that is already mounted is listed whatever its host is doing, marked
+# "[reattach]", since reattaching is how it gets synced and unmounted properly.
 #
 # REQUIREMENTS:
 #  . "unison", which performs the synchronization (Debian based example:
