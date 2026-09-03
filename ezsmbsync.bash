@@ -136,14 +136,27 @@ f_host_is_up() {
     [ -n "$HOST_VALUE" ] || return 1
 
     # 445 is the modern SMB port, 139 the legacy NetBIOS one, still used by old
-    # servers.
-    for PORT_VALUE in 445 139; do
-        if timeout "$SETUP_PROBE_TIMEOUT" bash -c \
-                "exec 3<>/dev/tcp/$HOST_VALUE/$PORT_VALUE" 2> /dev/null; then
-            return 0
-        fi
-    done
+    # servers. Both are tried at once: a host that is simply not there answers
+    # neither, and waiting for the first to time out before starting the second
+    # doubles the slowest thing this script does.
+    local FLAG_DIR
+    FLAG_DIR="$(mktemp -d)" || return 1
 
+    for PORT_VALUE in 445 139; do
+        (
+            timeout "$SETUP_PROBE_TIMEOUT" bash -c \
+                "exec 3<>/dev/tcp/$HOST_VALUE/$PORT_VALUE" 2> /dev/null \
+                && : > "$FLAG_DIR/open"
+        ) &
+    done
+    wait
+
+    if [ -e "$FLAG_DIR/open" ]; then
+        rm -rf "$FLAG_DIR"
+        return 0
+    fi
+
+    rm -rf "$FLAG_DIR"
     return 1
 }
 
@@ -169,6 +182,12 @@ f_select_setup() {
         return 1
     fi
 
+    # First pass: only what is free to find out -- the name, the host, and whether
+    # the share is already mounted.
+    local CAND_FILES=()
+    local CAND_NAMES=()
+    local CAND_HOSTS=()
+    local CAND_MARKS=()
     for SETUP_FILE in "$CONFIGS_DIR"/*.bash; do
         [ -f "$SETUP_FILE" ] || continue
 
@@ -177,24 +196,53 @@ f_select_setup() {
         # The template is not a setup.
         [ "$SETUP_NAME" == "$CONFIG_MODEL_NAME" ] && continue
 
-        HOST_VALUE="$(f_setup_host "$SETUP_FILE")"
+        CAND_FILES+=("$SETUP_FILE")
+        CAND_NAMES+=("$SETUP_NAME")
+        CAND_HOSTS+=("$(f_setup_host "$SETUP_FILE")")
 
         # An already mounted share is listed whatever its host is doing: it may
         # well have gone away underneath, and reattaching is how the mount gets
-        # synced and taken down properly. An unmounted one is only worth offering
-        # when there is something at the other end to mount from.
-        MARK_VALUE=""
+        # synced and taken down properly.
         if f_setup_is_mounted "$SETUP_FILE"; then
-            MARK_VALUE="[reattach]"
+            CAND_MARKS+=("[reattach]")
         else
-            f_host_is_up "$HOST_VALUE" || continue
+            CAND_MARKS+=("")
+        fi
+    done
+
+    # Second pass: the probes, all of them at the same time. A host that is not
+    # there costs a whole timeout, and doing that one setup after another is what
+    # made this feel slow: the waits added up instead of overlapping. Now the
+    # whole thing costs one timeout, however many setups there are.
+    local PROBE_DIR
+    PROBE_DIR="$(mktemp -d)" || return 1
+    for INDEX_VALUE in "${!CAND_FILES[@]}"; do
+        # A mounted one is listed anyway, so there is nothing to ask its host.
+        [ -n "${CAND_MARKS[$INDEX_VALUE]}" ] && continue
+        (
+            f_host_is_up "${CAND_HOSTS[$INDEX_VALUE]}" \
+                && : > "$PROBE_DIR/$INDEX_VALUE"
+        ) &
+    done
+    wait
+
+    # Third pass: keep the mounted ones and the ones that answered.
+    for INDEX_VALUE in "${!CAND_FILES[@]}"; do
+        MARK_VALUE="${CAND_MARKS[$INDEX_VALUE]}"
+        if [ -z "$MARK_VALUE" ] && [ ! -e "$PROBE_DIR/$INDEX_VALUE" ]; then
+            continue
         fi
 
-        SETUP_PATHS+=("$SETUP_FILE")
+        SETUP_PATHS+=("${CAND_FILES[$INDEX_VALUE]}")
         # A space is kept between the fields, so that a name longer than its
         # column pushes the rest along instead of running into it.
-        SETUP_LABELS+=("$(printf '%-29s %-18s %s' "$SETUP_NAME" "$HOST_VALUE" "$MARK_VALUE")")
+        # The trailing blanks of a row with no mark are trimmed, so that the
+        # line ends where its content does.
+        SETUP_LABELS+=("$(printf '%-29s %-18s %s' \
+            "${CAND_NAMES[$INDEX_VALUE]}" "${CAND_HOSTS[$INDEX_VALUE]}" "$MARK_VALUE" \
+            | sed 's/[[:space:]]*$//')")
     done
+    rm -rf "$PROBE_DIR"
 
     if [ ${#SETUP_PATHS[@]} -eq 0 ]; then
         echo "No setup available (none with a host answering on Samba, none"\
