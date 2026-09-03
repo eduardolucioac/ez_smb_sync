@@ -252,6 +252,69 @@ f_config_error() {
     CONFIG_ERRORS=$((CONFIG_ERRORS + 1))
 }
 
+f_default_to() {
+    : 'Apply a default to a parameter that was left empty.
+
+    Args:
+        FIELD_NAME (str): Name of the parameter.
+        DEFAULT_VALUE (str): What to use when it is empty.'
+
+    [ -n "${!1}" ] || printf -v "$1" '%s' "$2"
+}
+
+f_must_be_boolean() {
+    : 'Reject a parameter that is neither 0 nor 1.
+
+    These end up in arithmetic tests, which abort the script with a syntax error
+    when the value is not a number, so they are worth catching early.
+
+    Args:
+        FIELD_NAME (str): Name of the parameter.'
+
+    case "${!1}" in
+        0|1) ;;
+        *) f_config_error "\"$1\" must be 0 or 1, got \"${!1}\"." ;;
+    esac
+}
+
+f_must_be_set() {
+    : 'Reject a parameter that is required and empty.
+
+    Args:
+        FIELD_NAME (str): Name of the parameter.
+        WHEN_VALUE (Optional[str]): What makes it required, when it is not always.
+
+    Returns:
+        0 when it is there, 1 otherwise, so that a further check can be chained
+    onto it and not fire on an empty value.'
+
+    if [ -z "${!1}" ]; then
+        f_config_error "\"$1\" is required${2:-}."
+        return 1
+    fi
+
+    return 0
+}
+
+f_must_be_dir() {
+    : 'Reject a parameter that does not point at an existing directory.
+
+    Args:
+        FIELD_NAME (str): Name of the parameter.
+
+    Returns:
+        0 when it is a directory, 1 otherwise.'
+
+    [ -n "${!1}" ] || return 1
+
+    if [ ! -d "${!1}" ]; then
+        f_config_error "\"$1\" (\"${!1}\") is not an existing directory."
+        return 1
+    fi
+
+    return 0
+}
+
 f_clean_path() {
     : 'Clean up a path informed in the configuration.
 
@@ -293,15 +356,9 @@ f_check_config() {
     CONFIG_ERRORS=0
 
     # Apply the default values of the optional parameters.
-    if [ -z "$SYNC_ENABLED" ]; then
-        SYNC_ENABLED=0
-    fi
-    if [ -z "$ONE_WAY_SYNC_FROM_REMOTE" ]; then
-        ONE_WAY_SYNC_FROM_REMOTE=1
-    fi
-    if [ -z "$AUTO_DETACH" ]; then
-        AUTO_DETACH=0
-    fi
+    f_default_to SYNC_ENABLED 0
+    f_default_to ONE_WAY_SYNC_FROM_REMOTE 1
+    f_default_to AUTO_DETACH 0
 
     DIR_MOUNT_REMOTE="$(f_clean_path "$DIR_MOUNT_REMOTE")"
     DIR_MOUNT_SYNC_REMOTE="$(f_clean_path "$DIR_MOUNT_SYNC_REMOTE")"
@@ -310,19 +367,9 @@ f_check_config() {
 
     # These two are used in arithmetic tests, which abort the script with a syntax
     # error when the value is not a number.
-    case "$SYNC_ENABLED" in
-        0|1) ;;
-        *) f_config_error "\"SYNC_ENABLED\" must be 0 or 1, got \"$SYNC_ENABLED\"." ;;
-    esac
-    case "$ONE_WAY_SYNC_FROM_REMOTE" in
-        0|1) ;;
-        *) f_config_error "\"ONE_WAY_SYNC_FROM_REMOTE\" must be 0 or 1, got"\
-" \"$ONE_WAY_SYNC_FROM_REMOTE\"." ;;
-    esac
-    case "$AUTO_DETACH" in
-        0|1) ;;
-        *) f_config_error "\"AUTO_DETACH\" must be 0 or 1, got \"$AUTO_DETACH\"." ;;
-    esac
+    f_must_be_boolean SYNC_ENABLED
+    f_must_be_boolean ONE_WAY_SYNC_FROM_REMOTE
+    f_must_be_boolean AUTO_DETACH
 
     # A comma ends the current option of "mount", so a credential containing one
     # would be silently truncated. A line break would corrupt the option list too.
@@ -337,13 +384,9 @@ f_check_config() {
         esac
     done
 
-    if [ -z "$NET_SHARE_USER" ]; then
-        f_config_error "\"NET_SHARE_USER\" is required."
-    fi
+    f_must_be_set NET_SHARE_USER
 
-    if [ -z "$NET_SHARE_REMOTE" ]; then
-        f_config_error "\"NET_SHARE_REMOTE\" is required."
-    else
+    if f_must_be_set NET_SHARE_REMOTE; then
         case "$NET_SHARE_REMOTE" in
             //?*/?*) ;;
             *) f_config_error "\"NET_SHARE_REMOTE\" (\"$NET_SHARE_REMOTE\") must be"\
@@ -351,12 +394,7 @@ f_check_config() {
         esac
     fi
 
-    if [ -z "$DIR_MOUNT_REMOTE" ]; then
-        f_config_error "\"DIR_MOUNT_REMOTE\" is required."
-    elif [ ! -d "$DIR_MOUNT_REMOTE" ]; then
-        f_config_error "\"DIR_MOUNT_REMOTE\" (\"$DIR_MOUNT_REMOTE\") is not an"\
-" existing directory."
-    fi
+    f_must_be_set DIR_MOUNT_REMOTE && f_must_be_dir DIR_MOUNT_REMOTE
 
     # "mount.cifs" usually lives in a "sbin" folder, which is not always in the PATH
     # of a regular user, so the usual locations are checked as well.
@@ -371,13 +409,8 @@ f_check_config() {
             f_config_error "\"unison\" was not found, but \"SYNC_ENABLED\" is 1."
         fi
 
-        if [ -z "$DIR_MOUNT_SYNC_LOCAL" ]; then
-            f_config_error "\"DIR_MOUNT_SYNC_LOCAL\" is required when"\
-" \"SYNC_ENABLED\" is 1."
-        elif [ ! -d "$DIR_MOUNT_SYNC_LOCAL" ]; then
-            f_config_error "\"DIR_MOUNT_SYNC_LOCAL\" (\"$DIR_MOUNT_SYNC_LOCAL\") is"\
-" not an existing directory."
-        fi
+        f_must_be_set DIR_MOUNT_SYNC_LOCAL " when \"SYNC_ENABLED\" is 1" &&\
+            f_must_be_dir DIR_MOUNT_SYNC_LOCAL
 
         # The remote folder to synchronize has to be part of the share, otherwise it
         # would not receive anything from the remote machine.
