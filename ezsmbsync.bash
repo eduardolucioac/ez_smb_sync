@@ -21,6 +21,11 @@ CONFIG_MODEL_NAME="my_config_model"
 # listing many setups stays quick.
 SETUP_PROBE_TIMEOUT=2
 
+# Name the user actually typed. Through a link in a "bin" folder that is the
+# command they know, which is what a message telling them how to come back should
+# use -- not the real file name behind it.
+INVOKED_AS="$(basename "$0")"
+
 # Prefix of every log line. It becomes the setup name once one is chosen, so that
 # several terminals running different setups can be told apart. Until then there is
 # no setup to name, and the messages of the selection stage carry no prefix at all.
@@ -152,6 +157,7 @@ f_select_setup() {
     local SETUP_FILE=""
     local SETUP_NAME=""
     local HOST_VALUE=""
+    local MARK_VALUE=""
     local CHOICE_VALUE=""
     local INDEX_VALUE=0
     local SETUP_PATHS=()
@@ -170,25 +176,31 @@ f_select_setup() {
         # The template is not a setup.
         [ "$SETUP_NAME" == "$CONFIG_MODEL_NAME" ] && continue
 
-        # Already mounted means there is nothing left for this run to do, so it
-        # is left out rather than offered and then refused.
-        f_setup_is_mounted "$SETUP_FILE" && continue
-
         HOST_VALUE="$(f_setup_host "$SETUP_FILE")"
-        f_host_is_up "$HOST_VALUE" || continue
+
+        # An already mounted share is listed whatever its host is doing: it may
+        # well have gone away underneath, and reattaching is how the mount gets
+        # synced and taken down properly. An unmounted one is only worth offering
+        # when there is something at the other end to mount from.
+        MARK_VALUE=""
+        if f_setup_is_mounted "$SETUP_FILE"; then
+            MARK_VALUE="Mounted! Reattach?"
+        else
+            f_host_is_up "$HOST_VALUE" || continue
+        fi
 
         SETUP_PATHS+=("$SETUP_FILE")
-        SETUP_LABELS+=("$(printf '%-40s %s' "$SETUP_NAME" "$HOST_VALUE")")
+        SETUP_LABELS+=("$(printf '%-40s %-18s %s' "$SETUP_NAME" "$HOST_VALUE" "$MARK_VALUE")")
     done
 
     if [ ${#SETUP_PATHS[@]} -eq 0 ]; then
-        echo "No setup ready to mount (host answering on Samba, share not mounted"\
-" yet)." >&2
+        echo "No setup available (none with a host answering on Samba, none"\
+" mounted)." >&2
         echo "Looked in \"$CONFIGS_DIR\"." >&2
         return 1
     fi
 
-    echo "Setups ready to mount (host answering on Samba, share not mounted yet):" >&2
+    echo "Available setups (host answering on Samba, or already mounted):" >&2
     for INDEX_VALUE in "${!SETUP_PATHS[@]}"; do
         printf '  %2d) %s\n' "$((INDEX_VALUE + 1))" "${SETUP_LABELS[$INDEX_VALUE]}" >&2
     done
@@ -386,12 +398,38 @@ f_check_config() {
 }
 
 f_provide_prompt() {
-    : 'Provide an interactive prompt.'
+    : 'Provide an interactive prompt.
+
+    The options are picked by number. They used to be typed out ("sync", "quit"
+    and so on), which meant remembering them; a number is read off the line the
+    prompt itself prints.'
 
     local COMMAND_VALUE=""
     while :; do
         case "$COMMAND_VALUE" in
-            "quit")
+            "1")
+                f_run_unison "by command"
+                ;;
+            "2")
+                f_run_unison "by command" "owsfr"
+                ;;
+            "3")
+                f_run_unison "by command" "owsfl"
+                ;;
+            "4")
+                # Leaving the share mounted is the point of this one: the work
+                # carries on outside, and this setup shows up in the list marked
+                # as mounted, ready to be picked again.
+                echo "--- [[ $LOG_TAG ]] Detaching, the share stays mounted! "
+                f_run_unison "final"
+
+                echo "--- [[ $LOG_TAG ]] Still mounted on"\
+" \"$DIR_MOUNT_REMOTE\". Come back to it by picking it from the list, or with"\
+" \"$INVOKED_AS $LOG_TAG\"."
+
+                break
+                ;;
+            "5")
                 echo "--- [[ $LOG_TAG ]] Trying to quit! "
                 f_run_unison "final"
 
@@ -400,26 +438,20 @@ f_provide_prompt() {
 
                 break
                 ;;
-            "sync")
-                f_run_unison "by command"
-                ;;
-            "owsfr")
-                f_run_unison "by command" "owsfr"
-                ;;
-            "owsfl")
-                f_run_unison "by command" "owsfl"
-                ;;
             "help")
                     echo "--- [[ $LOG_TAG ]]
  INSTRUCTIONS:
-  . sync - Synchronize according to the \"ONE_WAY_SYNC_FROM_REMOTE\" parameter.
-  . owsfr - Force a one way sync (mirroring, CAUTION!) from remote.
-  . owsfl - Force a one way sync (mirroring, CAUTION!) from local.
-  . quit - Good bye."
+  1 - sync - Synchronize according to the \"ONE_WAY_SYNC_FROM_REMOTE\" parameter.
+  2 - owsfr - Force a one way sync (mirroring, CAUTION!) from remote.
+  3 - owsfl - Force a one way sync (mirroring, CAUTION!) from local.
+  4 - detach - Sync one last time and leave, KEEPING the share mounted. It shows
+      up in the list as \"Mounted! Reattach?\" for you to pick up later.
+  5 - quit - Sync one last time, unmount the share and leave. Good bye."
                 ;;
             *)
                 if [ -n "$COMMAND_VALUE" ]; then
-                    echo "--- [[ $LOG_TAG ]] Unknown command \"$COMMAND_VALUE\"! Use \"help\" for instructions."
+                    echo "--- [[ $LOG_TAG ]] Unknown option \"$COMMAND_VALUE\"!"\
+" Use \"help\" for details."
                 fi
                 ;;
         esac
@@ -428,9 +460,9 @@ f_provide_prompt() {
         # clears the variable. Without treating that failure, the empty value would
         # fall into the "*)" branch, which stays silent for empty input, and the loop
         # would spin forever at full CPU without ever running the final sync and the
-        # unmount. Turning end-of-file into a "quit" makes it take the regular exit
+        # unmount. Turning end-of-file into a "5" makes it take the regular exit
         # path. The "-r" prevents backslashes in the input from being interpreted.
-        read -r COMMAND_VALUE || COMMAND_VALUE="quit"
+        read -r COMMAND_VALUE || COMMAND_VALUE="5"
     done
 }
 
@@ -650,10 +682,10 @@ if ( mountpoint -q "$DIR_MOUNT_REMOTE" ) ; then
 --- [[ $LOG_TAG ]]
 
  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            To stop the script type \"quit\" command and press Enter!
+             To stop the script type \"5\" and press Enter!
  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
- Type \"help\" for options.
+ 1 - sync, 2 - owsfr, 3 - owsfl, 4 - detach, 5 - quit, or \"help\" for details.
 "
     f_provide_prompt
 else

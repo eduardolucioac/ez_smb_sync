@@ -178,9 +178,9 @@ Running `ezsmbsync.bash` lists what is in `configs/`, one line per file, and
 asks which one to use:
 
 ```
-Setups ready to mount (host answering on Samba, share not mounted yet):
-   1) my_project                              192.168.122.59
-   2) my_client_name                          fileserver.local
+Available setups (host answering on Samba, or already mounted):
+   1) my_project                        192.168.122.59
+   2) my_client_name                    fileserver.local   Mounted! Reattach?
 number:
 ```
 
@@ -190,14 +190,16 @@ Samba ports, `445` first and `139` after it. A target that is switched off,
 unreachable or not running Samba is left out on purpose — picking it could only
 end in a failed mount.
 
-**A setup whose share is already mounted is left out too.** Its
-`DIR_MOUNT_REMOTE` is checked with `mountpoint`, and there is nothing left for a
-run to do there, so it is not offered rather than offered and then refused.
+**A setup whose share is already mounted is marked, not hidden.** Its
+`DIR_MOUNT_REMOTE` is checked with `mountpoint`, and picking it reattaches to the
+mount instead of making a new one. Those are listed whatever their host is doing
+— it may well have gone away underneath, and reattaching is how the mount gets
+synced and taken down properly.
 
 When nothing is answering you get told so, instead of an empty list:
 
 ```
-No setup ready to mount (host answering on Samba, share not mounted yet).
+No setup available (none with a host answering on Samba, none mounted).
 Looked in ".../configs".
 ```
 
@@ -243,16 +245,23 @@ What is there:
 
 Type these at the terminal while your profile is running:
 
-| Command | Purpose |
-|---|---|
-| `sync` | Synchronize according to the `ONE_WAY_SYNC_FROM_REMOTE` parameter |
-| `owsfr` | Force a one way sync (mirroring, **CAUTION!**) **from remote** |
-| `owsfl` | Force a one way sync (mirroring, **CAUTION!**) **from local** |
-| `help` | List the commands above |
-| `quit` | Run a final synchronization, unmount the share and exit |
+Pick them by number:
 
-**TIP:** Pressing **Ctrl+D** does exactly what `quit` does, final
-synchronization and unmount included.
+| | Command | Purpose |
+|---|---|---|
+| `1` | sync | Synchronize according to the `ONE_WAY_SYNC_FROM_REMOTE` parameter |
+| `2` | owsfr | Force a one way sync (mirroring, **CAUTION!**) **from remote** |
+| `3` | owsfl | Force a one way sync (mirroring, **CAUTION!**) **from local** |
+| `4` | detach | Final synchronization, then leave **keeping the share mounted** |
+| `5` | quit | Final synchronization, unmount the share and exit |
+| `help` | | Spell out the list above |
+
+**`detach` is the one to reach for when the work carries on outside.** The share
+stays where it is, and the setup shows up in the list as `Mounted! Reattach?`,
+ready to be picked again. Naming it works too: `ezsmbsync my_project`.
+
+**TIP:** Pressing **Ctrl+D** does exactly what `5` does, final synchronization
+and unmount included.
 
 ---
 
