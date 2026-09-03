@@ -179,8 +179,8 @@ asks which one to use:
 
 ```
 Available setups (host answering on Samba, or already mounted):
-   1) my_project                        192.168.122.59
-   2) my_client_name                    fileserver.local   Mounted! Reattach?
+   1) my_project                  192.168.122.59
+   2) my_client_name              fileserver.local   [reattach]
 number:
 ```
 
@@ -257,7 +257,7 @@ Pick them by number:
 | `6` | help | Spell out the list above. Typing `help` does the same |
 
 **`detach` is the one to reach for when the work carries on outside.** The share
-stays where it is, and the setup shows up in the list as `Mounted! Reattach?`,
+stays where it is, and the setup shows up in the list marked `[reattach]`,
 ready to be picked again. Naming it works too: `ezsmbsync my_project`.
 
 **TIP:** Pressing **Ctrl+D** does exactly what `5` does, final synchronization

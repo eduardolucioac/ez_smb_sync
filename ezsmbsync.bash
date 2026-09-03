@@ -184,13 +184,15 @@ f_select_setup() {
         # when there is something at the other end to mount from.
         MARK_VALUE=""
         if f_setup_is_mounted "$SETUP_FILE"; then
-            MARK_VALUE="Mounted! Reattach?"
+            MARK_VALUE="[reattach]"
         else
             f_host_is_up "$HOST_VALUE" || continue
         fi
 
         SETUP_PATHS+=("$SETUP_FILE")
-        SETUP_LABELS+=("$(printf '%-40s %-18s %s' "$SETUP_NAME" "$HOST_VALUE" "$MARK_VALUE")")
+        # A space is kept between the fields, so that a name longer than its
+        # column pushes the rest along instead of running into it.
+        SETUP_LABELS+=("$(printf '%-29s %-18s %s' "$SETUP_NAME" "$HOST_VALUE" "$MARK_VALUE")")
     done
 
     if [ ${#SETUP_PATHS[@]} -eq 0 ]; then
@@ -445,7 +447,7 @@ f_provide_prompt() {
   2 - owsfr - Force a one way sync (mirroring, CAUTION!) from remote.
   3 - owsfl - Force a one way sync (mirroring, CAUTION!) from local.
   4 - detach - Sync one last time and leave, KEEPING the share mounted. It shows
-      up in the list as \"Mounted! Reattach?\" for you to pick up later.
+      up in the list marked \"[reattach]\" for you to pick up later.
   5 - quit - Sync one last time, unmount the share and leave. Good bye.
   6 - help - This list. Typing \"help\" does the same."
                 ;;
