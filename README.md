@@ -246,23 +246,27 @@ What is there:
 Type these at the terminal while your profile is running:
 
 Each one answers to a **number** and to a **name** — `1` and `sync` do the same
-thing. The number is there to be read off the line the prompt prints, the name
+thing, which is what the `1/sync` notation says. The number is there to be read off the line the prompt prints, the name
 for the hand that already knows it.
 
 | Option | Purpose |
 |---|---|
-| `1` / `sync` | Synchronize according to the `ONE_WAY_SYNC_FROM_REMOTE` parameter |
-| `2` / `owsfr` | Force a one way sync (mirroring, **CAUTION!**) **from remote** |
-| `3` / `owsfl` | Force a one way sync (mirroring, **CAUTION!**) **from local** |
-| `4` / `detach` | Final synchronization, then leave **keeping the share mounted** |
-| `5` / `quit` | Final synchronization, unmount the share and exit |
-| `6` / `help` | Spell out the list above |
+| `1/sync` | Synchronize according to the `ONE_WAY_SYNC_FROM_REMOTE` parameter |
+| `2/owsfr` | Force a one way sync (mirroring, **CAUTION!**) **from remote** |
+| `3/owsfl` | Force a one way sync (mirroring, **CAUTION!**) **from local** |
+| `4/detach` | Final synchronization, then leave **keeping the share mounted** |
+| `5/quit` | Final synchronization, unmount the share and exit |
+| `6/help` | Spell out the list above |
 
-**`detach` is the one to reach for when the work carries on outside.** The share
-stays where it is, and the setup shows up in the list marked `[reattach]`,
+**`4/detach` is the one to reach for when the work carries on outside.** The
+share stays where it is, and the setup shows up in the list marked `[reattach]`,
 ready to be picked again. Naming it works too: `ezsmbsync my_project`.
 
-**TIP:** Pressing **Ctrl+D** does exactly what `5` / `quit` does, final
+**TIP:** Setting `AUTO_DETACH=1` in a setup makes every run of it do exactly
+that, with no prompt in between: mount, synchronize once, leave the share up.
+Handy from a login script, or when the work never happens in here.
+
+**TIP:** Pressing **Ctrl+D** does exactly what `5/quit` does, final
 synchronization and unmount included.
 
 ---
@@ -280,6 +284,7 @@ synchronization and unmount included.
 | `DIR_MOUNT_SYNC_REMOTE` | Optional | Folder inside the mounted share to sync. Assumes `DIR_MOUNT_REMOTE` when empty |
 | `DIR_MOUNT_SYNC_LOCAL` | Required if `SYNC_ENABLED=1` | Local folder to synchronize |
 | `ONE_WAY_SYNC_FROM_REMOTE` | Optional, default `1` | `1` mirrors from the share, `0` synchronizes both ways |
+| `AUTO_DETACH` | Optional, default `0` | `1` mounts, synchronizes once and leaves, without opening the prompt |
 | `I_SUPPORT_FREE_SOFTWARE_N_THIS_WORK` | Optional, default `0` | `1` hides the donation notice |
 
 **IMPORTANT:** There must be **no spaces** around the `=` sign. In Bash

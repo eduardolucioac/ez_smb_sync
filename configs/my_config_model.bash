@@ -84,6 +84,14 @@ DIR_MOUNT_SYNC_REMOTE=''
 # (Required if "SYNC_ENABLED=1")
 DIR_MOUNT_SYNC_LOCAL='/FOLDER_A/FOLDER_B/FOLDER_C'
 
+# Mounts the share, synchronizes once and leaves, without opening the interactive
+# prompt. The share stays mounted, exactly as the "detach" option does, so the
+# setup shows up in the list marked "[reattach]" for you to pick up later. Useful
+# from a login script, or before a session of work that happens entirely outside
+# this script.
+# (Optional, Default 0)
+AUTO_DETACH=0
+
 # Synchronizes in one-way mode from the folder with the mounted remote share.
 # CAUTION: A one way sync is a mirroring, so files that exist ONLY in the local folder
 # are DELETED to make it identical to the remote one. Set it to 0 to synchronize in

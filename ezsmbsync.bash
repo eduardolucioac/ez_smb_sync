@@ -299,6 +299,9 @@ f_check_config() {
     if [ -z "$ONE_WAY_SYNC_FROM_REMOTE" ]; then
         ONE_WAY_SYNC_FROM_REMOTE=1
     fi
+    if [ -z "$AUTO_DETACH" ]; then
+        AUTO_DETACH=0
+    fi
 
     DIR_MOUNT_REMOTE="$(f_clean_path "$DIR_MOUNT_REMOTE")"
     DIR_MOUNT_SYNC_REMOTE="$(f_clean_path "$DIR_MOUNT_SYNC_REMOTE")"
@@ -315,6 +318,10 @@ f_check_config() {
         0|1) ;;
         *) f_config_error "\"ONE_WAY_SYNC_FROM_REMOTE\" must be 0 or 1, got"\
 " \"$ONE_WAY_SYNC_FROM_REMOTE\"." ;;
+    esac
+    case "$AUTO_DETACH" in
+        0|1) ;;
+        *) f_config_error "\"AUTO_DETACH\" must be 0 or 1, got \"$AUTO_DETACH\"." ;;
     esac
 
     # A comma ends the current option of "mount", so a credential containing one
@@ -682,16 +689,28 @@ fi
 if ( mountpoint -q "$DIR_MOUNT_REMOTE" ) ; then
     f_ask_support
     f_run_unison "initial"
-    echo "
+
+    if [ ${AUTO_DETACH} -eq 1 ]; then
+        # Mount, sync, and get out of the way. The prompt is the whole point of
+        # the script for interactive use, but it is in the way when all you want
+        # is the share in place -- from a login script, or before a session of
+        # work that happens entirely outside here.
+        echo "--- [[ $LOG_TAG ]] Auto detach: mounted and leaving, the share"\
+" stays up! "
+        echo "--- [[ $LOG_TAG ]] Mounted on \"$DIR_MOUNT_REMOTE\". Come back to"\
+" it by picking it from the list, or with \"$INVOKED_AS $LOG_TAG\"."
+    else
+        echo "
 --- [[ $LOG_TAG ]]
 
  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          To stop the script type \"5\" or \"quit\" and press Enter!
+            To stop the script type \"5/quit\" and press Enter!
  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
  1/sync, 2/owsfr, 3/owsfl, 4/detach, 5/quit, or 6/help for details.
 "
-    f_provide_prompt
+        f_provide_prompt
+    fi
 else
     echo "--- [[ $LOG_TAG ]] Crap! The directory can not be mounted! :("
 fi
