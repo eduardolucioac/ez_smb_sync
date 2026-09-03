@@ -90,7 +90,8 @@ DIR_MOUNT_SYNC_LOCAL='/FOLDER_A/FOLDER_B/FOLDER_C'
 # prompt. The share stays mounted, exactly as the "detach" option does, so the
 # setup shows up in the list marked "[reattach]" for you to pick up later. Useful
 # from a login script, or before a session of work that happens entirely outside
-# this script.
+# this script. It only applies to a run that did the mounting: reattaching to a
+# share that was already up opens the prompt as usual.
 # (Optional, Default 0)
 AUTO_DETACH=0
 

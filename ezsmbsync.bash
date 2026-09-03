@@ -152,7 +152,8 @@ f_select_setup() {
 
     Returns:
         The path of the chosen configuration profile, on the standard output.
-        1 when there is nothing to choose from or the choice is invalid.'
+        1 when there is nothing to choose from or the choice is invalid, 2 when
+    the answer was to leave.'
 
     local SETUP_FILE=""
     local SETUP_NAME=""
@@ -207,7 +208,13 @@ f_select_setup() {
         printf '  %2d) %s\n' "$((INDEX_VALUE + 1))" "${SETUP_LABELS[$INDEX_VALUE]}" >&2
     done
 
-    read -r -p "number: " CHOICE_VALUE
+    read -r -p "number or 0/quit: " CHOICE_VALUE
+
+    # Leaving without picking anything is a normal way out, not a mistake, so it
+    # gets its own status for the caller to tell the two apart.
+    case "$CHOICE_VALUE" in
+        0|"quit") return 2 ;;
+    esac
 
     case "$CHOICE_VALUE" in
         ''|*[!0-9]*)
@@ -674,7 +681,14 @@ if [ "${BASH_SOURCE[0]}" == "$0" ]; then
             exit 1
         fi
     else
-        SETUP_PATH="$(f_select_setup)" || exit 1
+        SETUP_PATH="$(f_select_setup)"
+        SELECT_STATUS=$?
+        if [ ${SELECT_STATUS} -eq 2 ]; then
+            # Asked to leave. Nothing was mounted, so there is nothing to undo.
+            exit 0
+        elif [ ${SELECT_STATUS} -ne 0 ]; then
+            exit 1
+        fi
     fi
 
     LOG_TAG="$(basename "$SETUP_PATH" .bash)"
@@ -692,6 +706,14 @@ if ! f_check_config ; then
     echo "--- [[ $LOG_TAG ]] Fix the configuration above and try again! :("
     exit 1
 fi
+
+# Whether the share was already there when this run started. It decides whether
+# AUTO_DETACH applies: leaving at once makes sense for a run that mounted the
+# share and has nothing else to do, but not for one that was asked to reattach to
+# a share already up -- that was asked for on purpose, and the prompt is the point
+# of it.
+WAS_MOUNTED=0
+( mountpoint -q "$DIR_MOUNT_REMOTE" ) && WAS_MOUNTED=1
 
 # Mount the Samba share if conditions exist.
 if ( ! mountpoint -q "$DIR_MOUNT_REMOTE" ) ; then
@@ -723,7 +745,7 @@ if ( mountpoint -q "$DIR_MOUNT_REMOTE" ) ; then
     f_ask_support
     f_run_unison "initial"
 
-    if [ ${AUTO_DETACH} -eq 1 ]; then
+    if [ ${AUTO_DETACH} -eq 1 ] && [ ${WAS_MOUNTED} -eq 0 ]; then
         # Mount, sync, and get out of the way. The prompt is the whole point of
         # the script for interactive use, but it is in the way when all you want
         # is the share in place -- from a login script, or before a session of

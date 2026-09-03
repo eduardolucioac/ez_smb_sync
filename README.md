@@ -181,7 +181,7 @@ asks which one to use:
 Available setups (host answering on Samba, or already mounted):
    1) my_project                  192.168.122.59
    2) my_client_name              fileserver.local   [reattach]
-number:
+number or 0/quit:
 ```
 
 **Only setups whose host is answering are listed.** The host is taken from the
@@ -266,6 +266,10 @@ ready to be picked again. Naming it works too: `ezsmbsync my_project`.
 that, with no prompt in between: mount, synchronize once, leave the share up.
 Handy from a login script, or when the work never happens in here.
 
+It only applies to a run that **did** the mounting. Reattaching to a share that
+was already up opens the prompt as usual — you asked for that one on purpose,
+and being shown the door would be the opposite of useful.
+
 **TIP:** Pressing **Ctrl+D** does exactly what `5/quit` does, final
 synchronization and unmount included.
 
@@ -284,7 +288,7 @@ synchronization and unmount included.
 | `DIR_MOUNT_SYNC_REMOTE` | Optional | Folder inside the mounted share to sync. Assumes `DIR_MOUNT_REMOTE` when empty |
 | `DIR_MOUNT_SYNC_LOCAL` | Required if `SYNC_ENABLED=1` | Local folder to synchronize |
 | `ONE_WAY_SYNC_FROM_REMOTE` | Optional, default `1` | `1` mirrors from the share, `0` synchronizes both ways |
-| `AUTO_DETACH` | Optional, default `0` | `1` mounts, synchronizes once and leaves, without opening the prompt |
+| `AUTO_DETACH` | Optional, default `0` | `1` mounts, synchronizes once and leaves, without opening the prompt. A run that found the share **already mounted** opens the prompt anyway |
 | `I_SUPPORT_FREE_SOFTWARE_N_THIS_WORK` | Optional, default `0` | `1` hides the donation notice |
 
 **IMPORTANT:** There must be **no spaces** around the `=` sign. In Bash
