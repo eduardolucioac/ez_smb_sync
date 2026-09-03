@@ -254,7 +254,7 @@ Pick them by number:
 | `3` | owsfl | Force a one way sync (mirroring, **CAUTION!**) **from local** |
 | `4` | detach | Final synchronization, then leave **keeping the share mounted** |
 | `5` | quit | Final synchronization, unmount the share and exit |
-| `help` | | Spell out the list above |
+| `6` | help | Spell out the list above. Typing `help` does the same |
 
 **`detach` is the one to reach for when the work carries on outside.** The share
 stays where it is, and the setup shows up in the list as `Mounted! Reattach?`,

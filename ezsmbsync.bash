@@ -438,7 +438,7 @@ f_provide_prompt() {
 
                 break
                 ;;
-            "help")
+            "6"|"help")
                     echo "--- [[ $LOG_TAG ]]
  INSTRUCTIONS:
   1 - sync - Synchronize according to the \"ONE_WAY_SYNC_FROM_REMOTE\" parameter.
@@ -446,12 +446,13 @@ f_provide_prompt() {
   3 - owsfl - Force a one way sync (mirroring, CAUTION!) from local.
   4 - detach - Sync one last time and leave, KEEPING the share mounted. It shows
       up in the list as \"Mounted! Reattach?\" for you to pick up later.
-  5 - quit - Sync one last time, unmount the share and leave. Good bye."
+  5 - quit - Sync one last time, unmount the share and leave. Good bye.
+  6 - help - This list. Typing \"help\" does the same."
                 ;;
             *)
                 if [ -n "$COMMAND_VALUE" ]; then
                     echo "--- [[ $LOG_TAG ]] Unknown option \"$COMMAND_VALUE\"!"\
-" Use \"help\" for details."
+" Use \"6\" for details."
                 fi
                 ;;
         esac
@@ -685,7 +686,7 @@ if ( mountpoint -q "$DIR_MOUNT_REMOTE" ) ; then
              To stop the script type \"5\" and press Enter!
  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
- 1 - sync, 2 - owsfr, 3 - owsfl, 4 - detach, 5 - quit, or \"help\" for details.
+ 1 - sync, 2 - owsfr, 3 - owsfl, 4 - detach, 5 - quit, or 6 - help for details.
 "
     f_provide_prompt
 else
